@@ -18,14 +18,14 @@ import { Button } from '@/components/ui/button';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'User Management', href: '/users', icon: Users },
-  { name: 'Credit Management', href: '/credits', icon: CreditCard },
-  { name: 'Content & Playlists', href: '/content', icon: PlayCircle },
-  { name: 'Subscription Plans', href: '/subscriptions', icon: Package },
-  { name: 'Sub Admin', href: '/sub-admin', icon: UserCog },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Reports', href: '/reports', icon: FileText },
-  { name: 'System Config', href: '/config', icon: Settings },
+  { name: 'User Management', href: '/dashboard/users', icon: Users },
+  { name: 'Credit Management', href: '/dashboard/credits', icon: CreditCard },
+  { name: 'Content & Playlists', href: '/dashboard/content', icon: PlayCircle },
+  { name: 'Subscription Plans', href: '/dashboard/subscriptions', icon: Package },
+  { name: 'Sub Admin', href: '/dashboard/sub-admin', icon: UserCog },
+  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  { name: 'Reports', href: '/dashboard/reports', icon: FileText },
+  { name: 'System Config', href: '/dashboard/config', icon: Settings },
 ];
 
 const Sidebar = () => {

@@ -46,14 +46,14 @@ const AppRoutes = () => {
         </ProtectedRoute>
       }>
         <Route index element={<Dashboard />} />
-        <Route path="/users" element={<UserManagement />} />
-        <Route path="/content" element={<ContentManagement />} />
-        <Route path="/subscriptions" element={<SubscriptionPlans />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/credits" element={<div className="p-6"><h1 className="text-2xl font-bold">Credit Management</h1><p className="text-gray-600 mt-2">Credit management features coming soon...</p></div>} />
-        <Route path="/sub-admin" element={<div className="p-6"><h1 className="text-2xl font-bold">Sub Admin Management</h1><p className="text-gray-600 mt-2">Sub admin features coming soon...</p></div>} />
-        <Route path="/reports" element={<div className="p-6"><h1 className="text-2xl font-bold">Reports</h1><p className="text-gray-600 mt-2">Reporting features coming soon...</p></div>} />
-        <Route path="/config" element={<div className="p-6"><h1 className="text-2xl font-bold">System Configuration</h1><p className="text-gray-600 mt-2">Configuration features coming soon...</p></div>} />
+        <Route path="users" element={<UserManagement />} />
+        <Route path="content" element={<ContentManagement />} />
+        <Route path="subscriptions" element={<SubscriptionPlans />} />
+        <Route path="analytics" element={<Analytics />} />
+        <Route path="credits" element={<div className="p-6"><h1 className="text-2xl font-bold">Credit Management</h1><p className="text-gray-600 mt-2">Credit management features coming soon...</p></div>} />
+        <Route path="sub-admin" element={<div className="p-6"><h1 className="text-2xl font-bold">Sub Admin Management</h1><p className="text-gray-600 mt-2">Sub admin features coming soon...</p></div>} />
+        <Route path="reports" element={<div className="p-6"><h1 className="text-2xl font-bold">Reports</h1><p className="text-gray-600 mt-2">Reporting features coming soon...</p></div>} />
+        <Route path="config" element={<div className="p-6"><h1 className="text-2xl font-bold">System Configuration</h1><p className="text-gray-600 mt-2">Configuration features coming soon...</p></div>} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
