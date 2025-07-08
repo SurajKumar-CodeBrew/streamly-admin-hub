@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Users, DollarSign, Play, Activity } from 'lucide-react';
 import StatsCard from '@/components/Dashboard/StatsCard';

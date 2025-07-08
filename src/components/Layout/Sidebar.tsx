@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -11,10 +10,12 @@ import {
   FileText,
   UserCog,
   LogOut,
-  Package
+  Package,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -30,6 +31,31 @@ const navigation = [
 
 const Sidebar = () => {
   const { user, logout } = useAuth();
+  const { toast } = useToast();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevent multiple clicks
+    
+    setIsLoggingOut(true);
+    
+    try {
+      await logout();
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: "Logout Error",
+        description: "There was an issue logging you out, but you will be redirected.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <div className="bg-gray-900 text-white w-64 min-h-screen flex flex-col">
@@ -66,20 +92,25 @@ const Sidebar = () => {
       <div className="p-4 border-t border-gray-700">
         <div className="flex items-center mb-4">
           <div className="bg-blue-600 w-8 h-8 rounded-full flex items-center justify-center mr-3">
-            <span className="text-sm font-semibold">{user?.name.charAt(0)}</span>
+            <span className="text-sm font-semibold">{user?.username?.charAt(0)?.toUpperCase() || 'A'}</span>
           </div>
           <div>
-            <p className="text-sm font-medium">{user?.name}</p>
+            <p className="text-sm font-medium">{user?.username}</p>
             <p className="text-xs text-gray-400">{user?.role}</p>
           </div>
         </div>
         <Button
-          onClick={logout}
+          onClick={handleLogout}
+          disabled={isLoggingOut}
           variant="ghost"
-          className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
+          className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 disabled:opacity-50"
         >
-          <LogOut className="h-4 w-4 mr-2" />
-          Logout
+          {isLoggingOut ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4 mr-2" />
+          )}
+          {isLoggingOut ? 'Logging out...' : 'Logout'}
         </Button>
       </div>
     </div>
