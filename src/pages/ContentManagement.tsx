@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Upload, Play, Plus, Search, Filter, TrendingUp, Film, Tv, Radio } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Upload, Play, Plus, Search, Filter, TrendingUp, Film, Tv, Radio, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -38,27 +39,57 @@ const ContentManagement = () => {
   const [activeTab, setActiveTab] = useState('playlists');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [statistics, setStatistics] = useState<MediaStatistics | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [nextRefreshIn, setNextRefreshIn] = useState(300); // 5 minutes in seconds
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const playlists = [
-    {
-      id: '1',
-      name: 'Premium Movies',
-      type: 'VOD',
-      channels: 150,
-      status: 'active',
-      lastUpdated: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Sports Channels',
-      type: 'Live TV',
-      channels: 45,
-      status: 'active',
-      lastUpdated: '2024-01-10'
-    }
-  ];
+  // Dynamic playlists based on statistics
+  const getDynamicPlaylists = () => {
+    if (!statistics) return [];
+    
+    return [
+      {
+        id: 'movies',
+        name: 'Movies',
+        type: 'VOD',
+        channels: statistics.totalMovies,
+        status: 'active',
+        icon: Film,
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-100',
+        lastUpdated: lastUpdated ? new Date(lastUpdated).toLocaleDateString() : 'N/A',
+        navigationPath: '/dashboard/content/categories/movies'
+      },
+      {
+        id: 'live-tv',
+        name: 'Live TV',
+        type: 'Live Channels',
+        channels: statistics.totalLive,
+        status: 'active',
+        icon: Radio,
+        color: 'text-red-600',
+        bgColor: 'bg-red-100',
+        lastUpdated: lastUpdated ? new Date(lastUpdated).toLocaleDateString() : 'N/A',
+        navigationPath: '/dashboard/content/categories/live-tv'
+      },
+      {
+        id: 'series',
+        name: 'Series',
+        type: 'VOD',
+        channels: statistics.totalSeries,
+        status: 'active',
+        icon: Tv,
+        color: 'text-green-600',
+        bgColor: 'bg-green-100',
+        lastUpdated: lastUpdated ? new Date(lastUpdated).toLocaleDateString() : 'N/A',
+        navigationPath: '/dashboard/content/categories/series'
+      }
+    ];
+  };
 
   const content = [
     {
@@ -83,6 +114,7 @@ const ContentManagement = () => {
 
   const fetchMediaStatistics = async () => {
     try {
+      setIsRefreshing(true);
       const token = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
       
       if (!token) {
@@ -96,7 +128,7 @@ const ContentManagement = () => {
           'Authorization': `Bearer ${token}`,
         },
       });
-//hello test
+
       if (!response.ok) {
         // Check if it's a 404 error (endpoint not found)
         if (response.status === 404) {
@@ -108,6 +140,7 @@ const ContentManagement = () => {
             totalItems: 0
           };
           setStatistics(mockStatistics);
+          setLastUpdated(null);
           toast({
             title: "Info",
             description: "Media statistics endpoint is not available. Using mock data.",
@@ -141,6 +174,8 @@ const ContentManagement = () => {
       // Check if the response has the expected structure
       if (data.data && data.data.statistics) {
         setStatistics(data.data.statistics);
+        setLastUpdated(data.data.timestamps.lastUpdated);
+        setNextRefreshIn(300); // Reset countdown to 5 minutes
         toast({
           title: "Success",
           description: "Media statistics loaded successfully!",
@@ -161,6 +196,7 @@ const ContentManagement = () => {
           totalItems: 0
         };
         setStatistics(mockStatistics);
+        setLastUpdated(null);
         toast({
           title: "Info",
           description: "Backend endpoint not available. Contact your system administrator.",
@@ -175,12 +211,51 @@ const ContentManagement = () => {
       }
     } finally {
       setIsLoadingStats(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
     fetchMediaStatistics();
   }, []);
+
+  // Update current time every minute for dynamic timestamps
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Auto-refresh statistics and countdown timer
+  useEffect(() => {
+    const countdownTimer = setInterval(() => {
+      setNextRefreshIn(prev => {
+        if (prev <= 1) {
+          fetchMediaStatistics();
+          return 300; // Reset to 5 minutes
+        }
+        return prev - 1;
+      });
+    }, 1000); // Update every second
+
+    return () => clearInterval(countdownTimer);
+  }, []);
+
+  const handleManualRefresh = () => {
+    fetchMediaStatistics();
+  };
+
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleCardClick = (navigationPath: string) => {
+    navigate(navigationPath);
+  };
 
   const handleUploadSuccess = () => {
     // Refresh statistics after successful upload
@@ -190,6 +265,30 @@ const ContentManagement = () => {
 
   const formatNumber = (num: number) => {
     return num.toLocaleString();
+  };
+
+  const formatLastUpdated = (dateString: string | null) => {
+    if (!dateString) return null;
+    
+    const date = new Date(dateString);
+    const now = currentTime; // Use dynamic current time instead of new Date()
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes} min ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const StatCard = ({ title, value, icon: Icon, color }: { 
@@ -229,18 +328,45 @@ const ContentManagement = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Content Management</h1>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => setIsUploadModalOpen(true)}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Playlist
-          </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Content
-          </Button>
+        <div className="flex items-center gap-4">
+          {/* Last Updated Display */}
+          {lastUpdated && (
+            <div className="text-sm text-gray-500 flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span>Last updated:</span>
+                <span className="font-medium">{formatLastUpdated(lastUpdated)}</span>
+              </div>
+              <span className="text-gray-300">•</span>
+              <div className="flex items-center gap-1">
+                <span>Next refresh:</span>
+                <span className="font-medium text-blue-600">{formatCountdown(nextRefreshIn)}</span>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="text-gray-600"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsUploadModalOpen(true)}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Playlist
+            </Button>
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Content
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -320,24 +446,101 @@ const ContentManagement = () => {
 
           {/* Playlists Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {playlists.map((playlist) => (
-              <div key={playlist.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-blue-100 p-3 rounded-lg">
-                    <Play className="h-6 w-6 text-blue-600" />
+            {isLoadingStats ? (
+              // Loading skeleton cards
+              <>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <Skeleton className="h-12 w-12 rounded-lg" />
+                    <Skeleton className="h-6 w-16" />
                   </div>
-                  <Badge variant={playlist.status === 'active' ? 'default' : 'secondary'}>
-                    {playlist.status}
-                  </Badge>
+                  <Skeleton className="h-6 w-24 mb-2" />
+                  <Skeleton className="h-4 w-32 mb-4" />
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{playlist.name}</h3>
-                <p className="text-sm text-gray-600 mb-4">{playlist.type} • {playlist.channels} channels</p>
-                <div className="flex items-center justify-between text-sm text-gray-500">
-                  <span>Updated: {playlist.lastUpdated}</span>
-                  <Button variant="ghost" size="sm">Manage</Button>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <Skeleton className="h-12 w-12 rounded-lg" />
+                    <Skeleton className="h-6 w-16" />
+                  </div>
+                  <Skeleton className="h-6 w-24 mb-2" />
+                  <Skeleton className="h-4 w-32 mb-4" />
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
                 </div>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <Skeleton className="h-12 w-12 rounded-lg" />
+                    <Skeleton className="h-6 w-16" />
+                  </div>
+                  <Skeleton className="h-6 w-24 mb-2" />
+                  <Skeleton className="h-4 w-32 mb-4" />
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                </div>
+              </>
+            ) : getDynamicPlaylists().length > 0 ? (
+              getDynamicPlaylists().map((playlist) => (
+                <Card 
+                  key={playlist.id} 
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer group"
+                  onClick={() => handleCardClick(playlist.navigationPath)}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`${playlist.bgColor} p-3 rounded-lg group-hover:scale-110 transition-transform duration-200`}>
+                      <playlist.icon className={`h-6 w-6 ${playlist.color}`} />
+                    </div>
+                    <Badge variant={playlist.status === 'active' ? 'default' : 'secondary'}>
+                      {playlist.status}
+                    </Badge>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                    {playlist.name}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {playlist.type} • {formatNumber(playlist.channels)} items
+                  </p>
+                  <div className="flex items-center justify-between text-sm text-gray-500">
+                    <span>Updated: {playlist.lastUpdated}</span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent card click
+                        // Add manage functionality here later
+                        toast({
+                          title: "Info",
+                          description: "Manage functionality coming soon!",
+                          variant: "default",
+                        });
+                      }}
+                      className="hover:bg-gray-100"
+                    >
+                      Manage
+                    </Button>
+                  </div>
+                </Card>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8">
+                <p className="text-gray-500">No playlist data available</p>
+                <Button 
+                  variant="outline" 
+                  onClick={handleManualRefresh}
+                  className="mt-2"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Data
+                </Button>
               </div>
-            ))}
+            )}
           </div>
         </TabsContent>
 

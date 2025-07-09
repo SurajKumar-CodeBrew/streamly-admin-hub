@@ -9,6 +9,10 @@ import MainLayout from "@/components/Layout/MainLayout";
 import Dashboard from "@/pages/Dashboard";
 import UserManagement from "@/pages/UserManagement";
 import ContentManagement from "@/pages/ContentManagement";
+import CategoryDetails from "@/pages/CategoryDetails";
+import ContentList from "@/pages/ContentList";
+import SeriesDetails from "@/pages/SeriesDetails";
+import VideoPlayer from "@/pages/VideoPlayer";
 import SubscriptionPlans from "@/pages/SubscriptionPlans";
 import Analytics from "@/pages/Analytics";
 import NotFound from "./pages/NotFound";
@@ -51,6 +55,10 @@ const AppRoutes = () => {
         <Route index element={<Dashboard />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="content" element={<ContentManagement />} />
+        <Route path="content/categories/:type" element={<CategoryDetails />} />
+        <Route path="content/categories/:type/content" element={<ContentList />} />
+        <Route path="content/series" element={<SeriesDetails />} />
+        <Route path="content/player" element={<VideoPlayer />} />
         <Route path="subscriptions" element={<SubscriptionPlans />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="credits" element={<div className="p-6"><h1 className="text-2xl font-bold">Credit Management</h1><p className="text-gray-600 mt-2">Credit management features coming soon...</p></div>} />
