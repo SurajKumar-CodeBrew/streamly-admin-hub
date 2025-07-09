@@ -10,7 +10,8 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       '/api': {
-        target: 'http://192.168.102.208:3001',
+        target: 'http://192.168.102.208:3001',        //For local Server
+        // target: 'https://api-ott.netsolutionindia.com',  //For live Server
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }

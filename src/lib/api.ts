@@ -33,6 +33,73 @@ interface ForgotPasswordResponse {
   success?: boolean;
 }
 
+interface CreateUserRequest {
+  name: string;
+  email: string;
+  password: string;
+  sendActivationCode?: boolean;
+}
+
+interface CreateUserResponse {
+  message: string;
+  data?: {
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      isActive: boolean;
+      createdAt: string;
+    };
+  };
+  success?: boolean;
+}
+
+interface UserDetailsResponse {
+  message: string;
+  user: {
+    _id: string;
+    userId: string;
+    name: string;
+    username: string;
+    email: string;
+    isActive: boolean;
+    isEmailVerified: boolean;
+    otp?: string;
+    otpExpiresAt?: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+interface UpdateUserRequest {
+  name?: string;
+  isActive?: boolean;
+  resendActivationCode?: boolean;
+}
+
+interface UpdateUserResponse {
+  message: string;
+  user: {
+    _id: string;
+    userId: string;
+    name: string;
+    username: string;
+    email: string;
+    isActive: boolean;
+    isEmailVerified: boolean;
+    otp?: string;
+    otpExpiresAt?: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  activationCode?: {
+    sent: boolean;
+    code: string;
+    expiresAt: string;
+    note: string;
+  };
+}
+
 interface ApiError {
   message: string;
   status?: number;
@@ -139,6 +206,59 @@ class ApiService {
     }
   }
 
+  async createUser(userData: CreateUserRequest): Promise<CreateUserResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(userData),
+      });
+
+      return this.handleResponse<CreateUserResponse>(response);
+    } catch (error) {
+      if (error instanceof TypeError) {
+        // Network error
+        throw new Error('Network error. Please check your connection and try again.');
+      }
+      throw error;
+    }
+  }
+
+  async getUserDetails(userId: string): Promise<UserDetailsResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
+
+      return this.handleResponse<UserDetailsResponse>(response);
+    } catch (error) {
+      if (error instanceof TypeError) {
+        // Network error
+        throw new Error('Network error. Please check your connection and try again.');
+      }
+      throw error;
+    }
+  }
+
+  async updateUser(userId: string, userData: UpdateUserRequest): Promise<UpdateUserResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify(userData),
+      });
+
+      return this.handleResponse<UpdateUserResponse>(response);
+    } catch (error) {
+      if (error instanceof TypeError) {
+        // Network error
+        throw new Error('Network error. Please check your connection and try again.');
+      }
+      throw error;
+    }
+  }
+
   async makeAuthenticatedRequest<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -193,4 +313,4 @@ class ApiService {
 }
 
 export const apiService = new ApiService();
-export type { LoginResponse, LogoutResponse, ForgotPasswordResponse, ApiError }; 
+export type { LoginResponse, LogoutResponse, ForgotPasswordResponse, CreateUserRequest, CreateUserResponse, UserDetailsResponse, UpdateUserRequest, UpdateUserResponse, ApiError }; 

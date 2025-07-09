@@ -5,6 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/hooks/use-toast';
+import CreateUserModal from '@/components/CreateUserModal';
+import EditUserModal from '@/components/EditUserModal';
+import ViewUserModal from '@/components/ViewUserModal';
 
 interface User {
   id: string;
@@ -60,6 +63,10 @@ const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: apiResponse, loading, error, makeRequest } = useApi<ApiResponse>({
@@ -91,7 +98,7 @@ const UserManagement = () => {
 
   // Transform API data to match our interface
   const users: User[] = apiResponse?.data?.users ? apiResponse.data.users.map((user: ApiUser) => ({
-    id: user._id,
+    id: user.userId, // Use userId instead of _id for the API calls
     name: user.name,
     email: user.email,
     phone: user.phone || 'N/A',
@@ -142,6 +149,34 @@ const UserManagement = () => {
     fetchUsers(currentPage);
   };
 
+  const handleCreateUser = () => {
+    setShowCreateModal(true);
+  };
+
+  const handleCreateUserSuccess = () => {
+    // Refresh the user list after successful creation
+    fetchUsers(1); // Go back to first page to see the new user
+    setCurrentPage(1);
+  };
+
+  const handleViewUser = (userId: string) => {
+    setSelectedUserId(userId);
+    setShowViewModal(true);
+  };
+
+  const handleEditUser = (userId: string) => {
+    setSelectedUserId(userId);
+    setShowEditModal(true);
+  };
+
+  const handleEditUserSuccess = () => {
+    // Refresh the user list after successful update
+    fetchUsers(currentPage);
+    // Close the modal
+    setShowEditModal(false);
+    setSelectedUserId(null);
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -184,204 +219,241 @@ const UserManagement = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-        <div className="flex gap-2">
-          <Button onClick={handleRefresh} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="text-sm font-medium text-gray-600">Total Users</div>
-          <div className="text-2xl font-bold text-gray-900">{stats.totalUsers}</div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="text-sm font-medium text-gray-600">Active Users</div>
-          <div className="text-2xl font-bold text-green-600">{stats.activeUsers}</div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="text-sm font-medium text-gray-600">Inactive Users</div>
-          <div className="text-2xl font-bold text-red-600">{stats.inactiveUsers}</div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search users..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
           <div className="flex gap-2">
-            <Button
-              variant={filterStatus === 'all' ? 'default' : 'outline'}
-              onClick={() => setFilterStatus('all')}
-              size="sm"
-            >
-              All Users ({stats.totalUsers})
+            <Button onClick={handleRefresh} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
             </Button>
-            <Button
-              variant={filterStatus === 'active' ? 'default' : 'outline'}
-              onClick={() => setFilterStatus('active')}
-              size="sm"
-            >
-              Active ({stats.activeUsers})
-            </Button>
-            <Button
-              variant={filterStatus === 'inactive' ? 'default' : 'outline'}
-              onClick={() => setFilterStatus('inactive')}
-              size="sm"
-            >
-              Inactive ({stats.inactiveUsers})
+            <Button onClick={handleCreateUser} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Add User
             </Button>
           </div>
         </div>
-      </div>
 
-      {/* Users Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {filteredUsers.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-500">
-              {searchTerm || filterStatus !== 'all' ? 'No users found matching your criteria.' : 'No users available.'}
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="text-sm font-medium text-gray-600">Total Users</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.totalUsers}</div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="text-sm font-medium text-gray-600">Active Users</div>
+            <div className="text-2xl font-bold text-green-600">{stats.activeUsers}</div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="text-sm font-medium text-gray-600">Inactive Users</div>
+            <div className="text-2xl font-bold text-red-600">{stats.inactiveUsers}</div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search users..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={filterStatus === 'all' ? 'default' : 'outline'}
+                onClick={() => setFilterStatus('all')}
+                size="sm"
+              >
+                All Users ({stats.totalUsers})
+              </Button>
+              <Button
+                variant={filterStatus === 'active' ? 'default' : 'outline'}
+                onClick={() => setFilterStatus('active')}
+                size="sm"
+              >
+                Active ({stats.activeUsers})
+              </Button>
+              <Button
+                variant={filterStatus === 'inactive' ? 'default' : 'outline'}
+                onClick={() => setFilterStatus('inactive')}
+                size="sm"
+              >
+                Inactive ({stats.inactiveUsers})
+              </Button>
             </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email Verified
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Subscription
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Join Date
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold">
-                          {user.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2) : user.email.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.name?.toUpperCase()}
-                          </div>
-                          <div className="text-sm text-gray-500">ID: {user.id}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{user.email}</div>
-                      <div className="text-sm text-gray-500">{user.phone}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                        {user.status}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge variant={user.isEmailVerified ? 'default' : 'secondary'}>
-                        {user.isEmailVerified ? 'Verified' : 'Not Verified'}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user.subscription}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.joinDate}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm" title="View Details">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" title="Edit User">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-800" title="Delete User">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
+        </div>
+
+        {/* Users Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {filteredUsers.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-500">
+                {searchTerm || filterStatus !== 'all' ? 'No users found matching your criteria.' : 'No users available.'}
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email Verified
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Subscription
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Join Date
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold">
+                            {user.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2) : user.email.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {user.name?.toUpperCase()}
+                            </div>
+                            <div className="text-sm text-gray-500">ID: {user.id}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{user.email}</div>
+                        <div className="text-sm text-gray-500">{user.phone}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                          {user.status}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge variant={user.isEmailVerified ? 'default' : 'secondary'}>
+                          {user.isEmailVerified ? 'Verified' : 'Not Verified'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {user.subscription}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.joinDate}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            title="View Details"
+                            onClick={() => handleViewUser(user.id)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            title="Edit User"
+                            onClick={() => handleEditUser(user.id)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-800" title="Delete User">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Pagination Info */}
+        {apiResponse && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600">
+              <div>
+                Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
+                {Math.min(pagination.currentPage * pagination.limit, pagination.totalUsers)} of{' '}
+                {pagination.totalUsers} users
+              </div>
+              <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                <span>Page {pagination.currentPage} of {pagination.totalPages}</span>
+                {pagination.totalPages > 1 && (
+                  <div className="flex gap-1 ml-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!pagination.hasPrevPage || loading}
+                      onClick={handlePrevPage}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!pagination.hasNextPage || loading}
+                      onClick={handleNextPage}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Pagination Info */}
-      {apiResponse && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <div className="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600">
-            <div>
-              Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
-              {Math.min(pagination.currentPage * pagination.limit, pagination.totalUsers)} of{' '}
-              {pagination.totalUsers} users
-            </div>
-            <div className="flex items-center gap-2 mt-2 sm:mt-0">
-              <span>Page {pagination.currentPage} of {pagination.totalPages}</span>
-              {pagination.totalPages > 1 && (
-                <div className="flex gap-1 ml-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!pagination.hasPrevPage || loading}
-                    onClick={handlePrevPage}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!pagination.hasNextPage || loading}
-                    onClick={handleNextPage}
-                  >
-                    Next
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <CreateUserModal 
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleCreateUserSuccess}
+      />
+
+      <ViewUserModal 
+        isOpen={showViewModal}
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedUserId(null);
+        }}
+        userId={selectedUserId}
+      />
+
+      <EditUserModal 
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedUserId(null);
+        }}
+        userId={selectedUserId}
+        onSuccess={handleEditUserSuccess}
+      />
+    </>
   );
 };
 

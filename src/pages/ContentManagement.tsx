@@ -1,13 +1,45 @@
 
-import React, { useState } from 'react';
-import { Upload, Play, Plus, Search, Filter } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Upload, Play, Plus, Search, Filter, TrendingUp, Film, Tv, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import UploadM3UModal from '@/components/UploadM3UModal';
+import { useToast } from '@/components/ui/use-toast';
+
+interface MediaStatistics {
+  totalLive: number;
+  totalMovies: number;
+  totalSeries: number;
+  totalItems: number;
+}
+
+interface StatisticsResponse {
+  message: string;
+  data: {
+    statistics: MediaStatistics;
+    timestamps: {
+      createdAt: string;
+      lastUpdated: string;
+    };
+    hasData: boolean;
+    recordId: string;
+  };
+  adminInfo: {
+    requestedBy: string;
+    requestedAt: string;
+  };
+}
 
 const ContentManagement = () => {
   const [activeTab, setActiveTab] = useState('playlists');
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [statistics, setStatistics] = useState<MediaStatistics | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const { toast } = useToast();
 
   const playlists = [
     {
@@ -49,12 +81,159 @@ const ContentManagement = () => {
     }
   ];
 
+  const fetchMediaStatistics = async () => {
+    try {
+      const token = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch('/api/admin/media-statistics', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        // Check if it's a 404 error (endpoint not found)
+        if (response.status === 404) {
+          // Use mock data as fallback when endpoint is not available
+          const mockStatistics: MediaStatistics = {
+            totalLive: 0,
+            totalMovies: 0,
+            totalSeries: 0,
+            totalItems: 0
+          };
+          setStatistics(mockStatistics);
+          toast({
+            title: "Info",
+            description: "Media statistics endpoint is not available. Using mock data.",
+            variant: "default",
+          });
+          return;
+        }
+
+        let errorMessage = `Request failed with status ${response.status}`;
+        
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // If we can't parse the error response, use the default message
+        }
+
+        if (response.status === 401) {
+          // Token expired or invalid, redirect to login
+          localStorage.removeItem('adminToken');
+          sessionStorage.removeItem('adminToken');
+          window.location.href = '/';
+          throw new Error('Authentication failed. Please log in again.');
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data: StatisticsResponse = await response.json();
+      
+      // Check if the response has the expected structure
+      if (data.data && data.data.statistics) {
+        setStatistics(data.data.statistics);
+        toast({
+          title: "Success",
+          description: "Media statistics loaded successfully!",
+          variant: "default",
+        });
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+      
+      // If the error is due to network issues or endpoint not available, show mock data
+      if (error instanceof Error && (error.message.includes('fetch') || error.message.includes('404'))) {
+        const mockStatistics: MediaStatistics = {
+          totalLive: 0,
+          totalMovies: 0,
+          totalSeries: 0,
+          totalItems: 0
+        };
+        setStatistics(mockStatistics);
+        toast({
+          title: "Info",
+          description: "Backend endpoint not available. Contact your system administrator.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to load media statistics",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMediaStatistics();
+  }, []);
+
+  const handleUploadSuccess = () => {
+    // Refresh statistics after successful upload
+    fetchMediaStatistics();
+    console.log('M3U playlist uploaded successfully!');
+  };
+
+  const formatNumber = (num: number) => {
+    return num.toLocaleString();
+  };
+
+  const StatCard = ({ title, value, icon: Icon, color }: { 
+    title: string; 
+    value: number; 
+    icon: React.ElementType;
+    color: string;
+  }) => (
+    <Card className="bg-white shadow-sm border border-gray-200">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-gray-600">{title}</CardTitle>
+        <Icon className={`h-4 w-4 ${color}`} />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold text-gray-900">{formatNumber(value)}</div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {statistics === null ? "Loading..." : value > 0 ? "Items in library" : "No items found"}
+        </p>
+      </CardContent>
+    </Card>
+  );
+
+  const StatCardSkeleton = () => (
+    <Card className="bg-white shadow-sm border border-gray-200">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-4 w-4" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-8 w-16 mb-1" />
+        <Skeleton className="h-3 w-20" />
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Content Management</h1>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button 
+            variant="outline" 
+            onClick={() => setIsUploadModalOpen(true)}
+          >
             <Upload className="h-4 w-4 mr-2" />
             Upload Playlist
           </Button>
@@ -63,6 +242,59 @@ const ContentManagement = () => {
             Add Content
           </Button>
         </div>
+      </div>
+
+      {/* Media Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {isLoadingStats ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : statistics ? (
+          <>
+            <StatCard 
+              title="Live Channels" 
+              value={statistics.totalLive} 
+              icon={Radio}
+              color="text-red-500"
+            />
+            <StatCard 
+              title="Movies" 
+              value={statistics.totalMovies} 
+              icon={Film}
+              color="text-blue-500"
+            />
+            <StatCard 
+              title="Series" 
+              value={statistics.totalSeries} 
+              icon={Tv}
+              color="text-green-500"
+            />
+            <StatCard 
+              title="Total Items" 
+              value={statistics.totalItems} 
+              icon={TrendingUp}
+              color="text-purple-500"
+            />
+          </>
+        ) : (
+          <div className="col-span-full text-center py-8">
+            <p className="text-gray-500">Failed to load statistics</p>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsLoadingStats(true);
+                fetchMediaStatistics();
+              }}
+              className="mt-2"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -187,6 +419,13 @@ const ContentManagement = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Upload M3U Modal */}
+      <UploadM3UModal 
+        isOpen={isUploadModalOpen} 
+        onClose={() => setIsUploadModalOpen(false)}
+        onSuccess={handleUploadSuccess}
+      />
     </div>
   );
 };
